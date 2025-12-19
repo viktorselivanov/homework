@@ -50,7 +50,6 @@ func TestUnpackWithIncorrect(t *testing.T) {
 		expected    string
 		expectError bool
 	}{
-
 		{"a4bc2d5e", "aaaabccddddde", false}, //  повторения
 		{"abcd", "abcd", false},              // без повторений
 		{"aaa0b", "aab", false},              // ноль

@@ -40,8 +40,6 @@ func Unpack(iString string) (string, error) {
 			builder.WriteRune(Irune)
 			prevRune = Irune
 		}
-
 	}
-
 	return builder.String(), nil
 }
