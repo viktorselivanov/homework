@@ -26,7 +26,6 @@ func TestUnpack(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			result, err := Unpack(tc.input)
 			require.NoError(t, err)
@@ -38,10 +37,46 @@ func TestUnpack(t *testing.T) {
 func TestUnpackInvalidString(t *testing.T) {
 	invalidStrings := []string{"3abc", "45", "aaa10b"}
 	for _, tc := range invalidStrings {
-		tc := tc
 		t.Run(tc, func(t *testing.T) {
 			_, err := Unpack(tc)
 			require.Truef(t, errors.Is(err, ErrInvalidString), "actual error %q", err)
+		})
+	}
+}
+
+func TestUnpackWithIncorrect(t *testing.T) {
+	tests := []struct {
+		input       string
+		expected    string
+		expectError bool
+	}{
+
+		{"a4bc2d5e", "aaaabccddddde", false}, //  повторения
+		{"abcd", "abcd", false},              // без повторений
+		{"aaa0b", "aab", false},              //ноль
+		{"ra0b0c", "rc", false},              // несколько нулей
+		{"a1r1c", "arc", false},              // повтор 1
+		{"🙂🙃3", "🙂🙃🙃🙃", false},               // смайлы
+		{"к2е3", "ккеее", false},             // UTF-8 символы
+		{"аыамы0я", "аыамя", false},          // UTF-8 символы
+		{"a\n3b", "a\n\n\nb", false},         // спецсимволы
+		{"\t2x", "\t\tx", false},             // спецсимволы
+		{"", "", false},                      // пустая строка
+		{"3abc", "", true},                   // некорректная строка
+		{"45", "", true},                     // некорректная строка
+		{"aaa10b", "", true},                 // некорректная строка
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			result, err := Unpack(tc.input)
+			if tc.expectError {
+				require.Error(t, err)
+				require.Truef(t, errors.Is(err, ErrInvalidString), "actual error %q", err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, result)
+			}
 		})
 	}
 }
