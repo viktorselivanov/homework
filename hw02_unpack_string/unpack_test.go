@@ -53,7 +53,7 @@ func TestUnpackWithIncorrect(t *testing.T) {
 
 		{"a4bc2d5e", "aaaabccddddde", false}, //  повторения
 		{"abcd", "abcd", false},              // без повторений
-		{"aaa0b", "aab", false},              //ноль
+		{"aaa0b", "aab", false},              // ноль
 		{"ra0b0c", "rc", false},              // несколько нулей
 		{"a1r1c", "arc", false},              // повтор 1
 		{"🙂🙃3", "🙂🙃🙃🙃", false},               // смайлы
