@@ -13,7 +13,7 @@ func ExecutePipeline(in In, done In, stages ...Stage) Out {
 
 	for _, stage := range stages {
 		if done != nil {
-			//передаём входные данные, проверяем на cancel.
+			// передаём входные данные, проверяем на cancel.
 			out = Stager(out, done)
 		}
 		out = stage(out)
@@ -21,8 +21,7 @@ func ExecutePipeline(in In, done In, stages ...Stage) Out {
 	return out
 }
 
-func Stager(in In,
-	done In) Out {
+func Stager(in In, done In) Out {
 	out := make(Bi)
 
 	go func() {
