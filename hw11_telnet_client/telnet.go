@@ -76,7 +76,7 @@ func (t *telnetClient) Send() error {
 func (t *telnetClient) Receive() error {
 	_, err := io.Copy(t.out, t.conn)
 	if err != nil {
-		fmt.Fprintln(t.out, "...Connection was closed by peer")
+		fmt.Fprintln(os.Stderr, "...Connection was closed by peer")
 		return err
 	}
 	return nil
