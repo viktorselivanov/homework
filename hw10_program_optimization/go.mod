@@ -1,4 +1,4 @@
-module github.com/viktorselivanov/hw10_program_optimization
+module github.com/viktorselivanov/homework/hw10_program_optimization
 
 go 1.22.2
 
