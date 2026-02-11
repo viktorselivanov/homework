@@ -43,7 +43,11 @@ func getUsers(r io.Reader) (result users, err error) {
 		i++
 	}
 
-	return
+	if err := sc.Err(); err != nil {
+		return users{}, err
+	}
+
+	return result, nil
 }
 
 func countDomains(u users, domain string) (DomainStat, error) {
