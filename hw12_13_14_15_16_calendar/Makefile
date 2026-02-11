@@ -30,7 +30,7 @@ install-lint-deps:
 	(which golangci-lint > /dev/null) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.62.2
 
 lint: install-lint-deps
-	$(LINTER) run ./...
+	golangci-lint run ./...
 
 migrate:
 	go run ./cmd/migrate -dsn "${DB_DSN}" -migrations ./migrations
