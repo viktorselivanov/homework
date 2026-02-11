@@ -64,6 +64,7 @@ func TestTelnetClient(t *testing.T) {
 		wg.Wait()
 	})
 }
+
 func TestTelnetClient_ConnectionTimeout(t *testing.T) {
 	timeout := 100 * time.Millisecond
 	client := NewTelnetClient(
