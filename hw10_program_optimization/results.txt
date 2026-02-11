@@ -1,0 +1,23 @@
+Начальный тест
+
+=== RUN   TestGetDomainStat_Time_And_Memory
+    stats_optimization_test.go:46: time used: 408.804455ms / 300ms
+    stats_optimization_test.go:47: memory used: 308Mb / 30Mb
+    stats_optimization_test.go:49: 
+                Error Trace:    /home/pc/git/homework/homework/hw10_program_optimization/stats_optimization_test.go:49
+                Error:          "408804455" is not less than "300000000"
+                Test:           TestGetDomainStat_Time_And_Memory
+                Messages:       the program is too slow
+--- FAIL: TestGetDomainStat_Time_And_Memory (8.54s)
+FAIL
+FAIL    github.com/viktorselivanov/hw10_program_optimization    8.550s
+
+
+После оптимизации
+
+=== RUN   TestGetDomainStat_Time_And_Memory
+    stats_optimization_test.go:46: time used: 112.607959ms / 300ms
+    stats_optimization_test.go:47: memory used: 11Mb / 30Mb
+--- PASS: TestGetDomainStat_Time_And_Memory (1.15s)
+PASS
+ok      github.com/viktorselivanov/hw10_program_optimization    1.153s
