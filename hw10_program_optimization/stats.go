@@ -36,7 +36,8 @@ func getUsers(r io.Reader) (result users, err error) {
 	for sc.Scan() {
 		var user User
 		if err = user.UnmarshalJSON(sc.Bytes()); err != nil {
-			return
+			// игнорируем невалидный JSON
+			continue
 		}
 		result[i] = user
 		i++
