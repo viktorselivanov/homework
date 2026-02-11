@@ -74,10 +74,23 @@ func (t *telnetClient) Send() error {
 
 // Receive читает из сокета и пишет в stdout.
 func (t *telnetClient) Receive() error {
-	_, err := io.Copy(t.out, t.conn)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "...Connection was closed by peer")
-		return err
+	if t.conn == nil {
+		return errors.New("connection is closed")
 	}
-	return nil
+
+	buf := make([]byte, 4096)
+
+	n, err := t.conn.Read(buf)
+	if n > 0 {
+		_, writeErr := t.out.Write(buf[:n])
+		if writeErr != nil {
+			return writeErr
+		}
+	}
+
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+
+	return err
 }
