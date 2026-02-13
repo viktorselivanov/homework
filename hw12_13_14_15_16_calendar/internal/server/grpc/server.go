@@ -97,9 +97,11 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 }
 
-// loggingInterceptor логирует каждый GRPC запрос
+// loggingInterceptor логирует каждый GRPC запрос.
 func loggingInterceptor(logger Logger) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req interface{},
+		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+	) (interface{}, error) {
 		start := time.Now()
 		resp, err := handler(ctx, req)
 		latency := time.Since(start)
@@ -121,6 +123,10 @@ func loggingInterceptor(logger Logger) grpc.UnaryServerInterceptor {
 // Конвертация между proto и доменными типами
 
 func protoEventToDomain(pb *event.Event) (storage.Event, error) {
+	if pb == nil {
+		return storage.Event{}, fmt.Errorf("event is nil")
+	}
+
 	e := storage.Event{
 		ID:          pb.GetId(),
 		Title:       pb.GetTitle(),
@@ -239,7 +245,7 @@ func (s *Server) GetEvent(ctx context.Context, req *event.GetEventRequest) (*eve
 	return &event.GetEventResponse{Event: domainEventToProto(domainEvent)}, nil
 }
 
-func (s *Server) ListEvents(ctx context.Context, req *event.ListEventsRequest) (*event.ListEventsResponse, error) {
+func (s *Server) ListEvents(ctx context.Context, _ *event.ListEventsRequest) (*event.ListEventsResponse, error) {
 	events, err := s.app.ListEvents(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -253,7 +259,9 @@ func (s *Server) ListEvents(ctx context.Context, req *event.ListEventsRequest) (
 	return &event.ListEventsResponse{Events: pbEvents}, nil
 }
 
-func (s *Server) ListEventsDay(ctx context.Context, req *event.ListEventsDayRequest) (*event.ListEventsDayResponse, error) {
+func (s *Server) ListEventsDay(ctx context.Context,
+	req *event.ListEventsDayRequest,
+) (*event.ListEventsDayResponse, error) {
 	if req.GetDayStart() == nil {
 		return nil, status.Error(codes.InvalidArgument, "day_start is required")
 	}
@@ -272,7 +280,9 @@ func (s *Server) ListEventsDay(ctx context.Context, req *event.ListEventsDayRequ
 	return &event.ListEventsDayResponse{Events: pbEvents}, nil
 }
 
-func (s *Server) ListEventsWeek(ctx context.Context, req *event.ListEventsWeekRequest) (*event.ListEventsWeekResponse, error) {
+func (s *Server) ListEventsWeek(ctx context.Context,
+	req *event.ListEventsWeekRequest,
+) (*event.ListEventsWeekResponse, error) {
 	if req.GetWeekStart() == nil {
 		return nil, status.Error(codes.InvalidArgument, "week_start is required")
 	}
@@ -291,7 +301,9 @@ func (s *Server) ListEventsWeek(ctx context.Context, req *event.ListEventsWeekRe
 	return &event.ListEventsWeekResponse{Events: pbEvents}, nil
 }
 
-func (s *Server) ListEventsMonth(ctx context.Context, req *event.ListEventsMonthRequest) (*event.ListEventsMonthResponse, error) {
+func (s *Server) ListEventsMonth(ctx context.Context,
+	req *event.ListEventsMonthRequest,
+) (*event.ListEventsMonthResponse, error) {
 	if req.GetMonthStart() == nil {
 		return nil, status.Error(codes.InvalidArgument, "month_start is required")
 	}

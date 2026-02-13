@@ -31,8 +31,8 @@ type Event struct {
 	At            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=at,proto3" json:"at,omitempty"`
 	Duration      *durationpb.Duration   `protobuf:"bytes,4,opt,name=duration,proto3" json:"duration,omitempty"`
 	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	UserId        string                 `protobuf:"bytes,6,opt,name=userId,json=userId,proto3" json:"userId,omitempty"`
-	NotifyBefore  *durationpb.Duration   `protobuf:"bytes,7,opt,name=notifyBefore,json=notifyBefore,proto3" json:"notifyBefore,omitempty"`
+	UserId        string                 `protobuf:"bytes,6,opt,name=userId,proto3" json:"userId,omitempty"`
+	NotifyBefore  *durationpb.Duration   `protobuf:"bytes,7,opt,name=notifyBefore,proto3" json:"notifyBefore,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -832,15 +832,15 @@ var File_EventService_proto protoreflect.FileDescriptor
 
 const file_EventService_proto_rawDesc = "" +
 	"\n" +
-	"\x12EventService.proto\x12\x05event\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\"\x8b\x02\n" +
+	"\x12EventService.proto\x12\x05event\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\"\x89\x02\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12*\n" +
 	"\x02at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x125\n" +
 	"\bduration\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\bduration\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x17\n" +
-	"\auserId\x18\x06 \x01(\tR\x06userId\x12>\n" +
-	"\rnotifyBefore\x18\a \x01(\v2\x19.google.protobuf.DurationR\fnotifyBefore\"8\n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06userId\x18\x06 \x01(\tR\x06userId\x12=\n" +
+	"\fnotifyBefore\x18\a \x01(\v2\x19.google.protobuf.DurationR\fnotifyBefore\"8\n" +
 	"\x12CreateEventRequest\x12\"\n" +
 	"\x05event\x18\x01 \x01(\v2\f.event.EventR\x05event\"%\n" +
 	"\x13CreateEventResponse\x12\x0e\n" +

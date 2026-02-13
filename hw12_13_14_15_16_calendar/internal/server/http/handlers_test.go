@@ -292,7 +292,10 @@ func TestListEventsDayHandler(t *testing.T) {
 	}
 	_ = app.CreateEvent(context.Background(), event)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events/day?day_start="+url.QueryEscape(dayStart.Format(time.RFC3339)), nil)
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/events/day?day_start="+
+			url.QueryEscape(dayStart.Format(time.RFC3339)), nil)
 	w := httptest.NewRecorder()
 
 	server.listEventsDayHandler(w, req)
@@ -327,7 +330,11 @@ func TestListEventsWeekHandler(t *testing.T) {
 	}
 	_ = app.CreateEvent(context.Background(), event)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events/week?week_start="+url.QueryEscape(weekStart.Format(time.RFC3339)), nil)
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/events/week?week_start="+
+			url.QueryEscape(weekStart.Format(time.RFC3339)),
+		nil)
 	w := httptest.NewRecorder()
 
 	server.listEventsWeekHandler(w, req)
@@ -362,7 +369,11 @@ func TestListEventsMonthHandler(t *testing.T) {
 	}
 	_ = app.CreateEvent(context.Background(), event)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events/month?month_start="+url.QueryEscape(monthStart.Format(time.RFC3339)), nil)
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/events/month?month_start="+
+			url.QueryEscape(monthStart.Format(time.RFC3339)),
+		nil)
 	w := httptest.NewRecorder()
 
 	server.listEventsMonthHandler(w, req)

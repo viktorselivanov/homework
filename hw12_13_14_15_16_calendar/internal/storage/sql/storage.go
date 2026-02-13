@@ -190,8 +190,17 @@ func (s *Storage) rowsToEvents(rows *sqlx.Rows) ([]storage.Event, error) {
 
 func (s *Storage) ListEvents(ctx context.Context) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore		FROM events 
-		ORDER BY at`)
+    SELECT 
+        id, 
+        title, 
+        at, 
+        duration::text AS duration, 
+        description, 
+        userId, 
+        notifyBefore::text AS notifyBefore
+    FROM events
+    ORDER BY at
+`)
 	if err != nil {
 		return nil, err
 	}
@@ -201,9 +210,18 @@ func (s *Storage) ListEvents(ctx context.Context) ([]storage.Event, error) {
 
 func (s *Storage) ListEventsDay(ctx context.Context, dayStart time.Time) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore		FROM events 
-		WHERE at >= $1 AND at < $2
-		ORDER BY at`, dayStart, dayStart.Add(24*time.Hour))
+    SELECT 
+        id, 
+        title, 
+        at, 
+        duration::text AS duration, 
+        description, 
+        userId, 
+        notifyBefore::text AS notifyBefore
+    FROM events
+    WHERE at >= $1 AND at < $2
+    ORDER BY at
+`, dayStart, dayStart.Add(24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
@@ -213,9 +231,18 @@ func (s *Storage) ListEventsDay(ctx context.Context, dayStart time.Time) ([]stor
 
 func (s *Storage) ListEventsWeek(ctx context.Context, weekStart time.Time) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore		FROM events 
-		WHERE at >= $1 AND at < $2
-		ORDER BY at`, weekStart, weekStart.Add(7*24*time.Hour))
+    SELECT 
+        id, 
+        title, 
+        at, 
+        duration::text AS duration, 
+        description, 
+        userId, 
+        notifyBefore::text AS notifyBefore
+    FROM events
+    WHERE at >= $1 AND at < $2
+    ORDER BY at
+`, weekStart, weekStart.Add(7*24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
@@ -226,9 +253,18 @@ func (s *Storage) ListEventsWeek(ctx context.Context, weekStart time.Time) ([]st
 func (s *Storage) ListEventsMonth(ctx context.Context, monthStart time.Time) ([]storage.Event, error) {
 	end := time.Date(monthStart.Year(), monthStart.Month(), 1, 0, 0, 0, 0, monthStart.Location()).AddDate(0, 1, 0)
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore		FROM events
-		WHERE at >= $1 AND at < $2
-		ORDER BY at`, monthStart, end)
+    SELECT 
+        id,
+        title,
+        at,
+        duration::text AS duration,
+        description,
+        userId,
+        notifyBefore::text AS notifyBefore
+    FROM events
+    WHERE at >= $1 AND at < $2
+    ORDER BY at
+`, monthStart, end)
 	if err != nil {
 		return nil, err
 	}

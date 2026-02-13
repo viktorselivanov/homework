@@ -1,6 +1,7 @@
 package internalhttp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -245,25 +246,30 @@ func (s *Server) listEventsHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, response)
 }
 
-func (s *Server) listEventsDayHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listEventsByParamHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	param string,
+	listFunc func(ctx context.Context, t time.Time) ([]storage.Event, error),
+) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	dayStartStr := r.URL.Query().Get("day_start")
-	if dayStartStr == "" {
-		respondError(w, http.StatusBadRequest, "day_start parameter is required (RFC3339 format)")
+	paramStr := r.URL.Query().Get(param)
+	if paramStr == "" {
+		respondError(w, http.StatusBadRequest, param+" parameter is required (RFC3339 format)")
 		return
 	}
 
-	dayStart, err := time.Parse(time.RFC3339, dayStartStr)
+	startTime, err := time.Parse(time.RFC3339, paramStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid day_start format. Use RFC3339 format")
+		respondError(w, http.StatusBadRequest, "Invalid "+param+" format. Use RFC3339 format")
 		return
 	}
 
-	events, err := s.app.ListEventsDay(r.Context(), dayStart)
+	events, err := listFunc(r.Context(), startTime)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -275,71 +281,115 @@ func (s *Server) listEventsDayHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) listEventsDayHandler(w http.ResponseWriter, r *http.Request) {
+	s.listEventsByParamHandler(w, r, "day_start", s.app.ListEventsDay)
 }
 
 func (s *Server) listEventsWeekHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	weekStartStr := r.URL.Query().Get("week_start")
-	if weekStartStr == "" {
-		respondError(w, http.StatusBadRequest, "week_start parameter is required (RFC3339 format)")
-		return
-	}
-
-	weekStart, err := time.Parse(time.RFC3339, weekStartStr)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid week_start format. Use RFC3339 format")
-		return
-	}
-
-	events, err := s.app.ListEventsWeek(r.Context(), weekStart)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	response := make([]eventResponse, 0, len(events))
-	for _, e := range events {
-		response = append(response, domainEventToResponse(e))
-	}
-
-	respondJSON(w, http.StatusOK, response)
+	s.listEventsByParamHandler(w, r, "week_start", s.app.ListEventsWeek)
 }
 
 func (s *Server) listEventsMonthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	monthStartStr := r.URL.Query().Get("month_start")
-	if monthStartStr == "" {
-		respondError(w, http.StatusBadRequest, "month_start parameter is required (RFC3339 format)")
-		return
-	}
-
-	monthStart, err := time.Parse(time.RFC3339, monthStartStr)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid month_start format. Use RFC3339 format")
-		return
-	}
-
-	events, err := s.app.ListEventsMonth(r.Context(), monthStart)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	response := make([]eventResponse, 0, len(events))
-	for _, e := range events {
-		response = append(response, domainEventToResponse(e))
-	}
-
-	respondJSON(w, http.StatusOK, response)
+	s.listEventsByParamHandler(w, r, "month_start", s.app.ListEventsMonth)
 }
+
+// func (s *Server) listEventsDayHandler(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodGet {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	dayStartStr := r.URL.Query().Get("day_start")
+// 	if dayStartStr == "" {
+// 		respondError(w, http.StatusBadRequest, "day_start parameter is required (RFC3339 format)")
+// 		return
+// 	}
+
+// 	dayStart, err := time.Parse(time.RFC3339, dayStartStr)
+// 	if err != nil {
+// 		respondError(w, http.StatusBadRequest, "Invalid day_start format. Use RFC3339 format")
+// 		return
+// 	}
+
+// 	events, err := s.app.ListEventsDay(r.Context(), dayStart)
+// 	if err != nil {
+// 		respondError(w, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
+
+// 	response := make([]eventResponse, 0, len(events))
+// 	for _, e := range events {
+// 		response = append(response, domainEventToResponse(e))
+// 	}
+
+// 	respondJSON(w, http.StatusOK, response)
+// }
+
+// func (s *Server) listEventsWeekHandler(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodGet {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	weekStartStr := r.URL.Query().Get("week_start")
+// 	if weekStartStr == "" {
+// 		respondError(w, http.StatusBadRequest, "week_start parameter is required (RFC3339 format)")
+// 		return
+// 	}
+
+// 	weekStart, err := time.Parse(time.RFC3339, weekStartStr)
+// 	if err != nil {
+// 		respondError(w, http.StatusBadRequest, "Invalid week_start format. Use RFC3339 format")
+// 		return
+// 	}
+
+// 	events, err := s.app.ListEventsWeek(r.Context(), weekStart)
+// 	if err != nil {
+// 		respondError(w, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
+
+// 	response := make([]eventResponse, 0, len(events))
+// 	for _, e := range events {
+// 		response = append(response, domainEventToResponse(e))
+// 	}
+
+// 	respondJSON(w, http.StatusOK, response)
+// }
+
+// func (s *Server) listEventsMonthHandler(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodGet {
+// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	monthStartStr := r.URL.Query().Get("month_start")
+// 	if monthStartStr == "" {
+// 		respondError(w, http.StatusBadRequest, "month_start parameter is required (RFC3339 format)")
+// 		return
+// 	}
+
+// 	monthStart, err := time.Parse(time.RFC3339, monthStartStr)
+// 	if err != nil {
+// 		respondError(w, http.StatusBadRequest, "Invalid month_start format. Use RFC3339 format")
+// 		return
+// 	}
+
+// 	events, err := s.app.ListEventsMonth(r.Context(), monthStart)
+// 	if err != nil {
+// 		respondError(w, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
+
+// 	response := make([]eventResponse, 0, len(events))
+// 	for _, e := range events {
+// 		response = append(response, domainEventToResponse(e))
+// 	}
+
+// 	respondJSON(w, http.StatusOK, response)
+// }
 
 func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")

@@ -79,6 +79,7 @@ func NewConfigFromFile(path string) (Config, error) {
 	return cfg, nil
 }
 
+//nolint:gocognit, nestif, funlen
 func main() {
 	flag.Parse()
 
@@ -110,7 +111,7 @@ func main() {
 
 	calendarApp := app.New(logg, store)
 
-	fmt.Println("=== Тестирование хранилища календаря ===\n")
+	fmt.Println("=== Тестирование хранилища календаря ===")
 
 	// Создаем тестовые события
 	now := time.Now()
