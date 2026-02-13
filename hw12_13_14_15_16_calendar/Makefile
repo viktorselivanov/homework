@@ -54,5 +54,5 @@ generate:
 	protoc --go_out=api/event --go_opt=paths=source_relative \
 		--go-grpc_out=api/event --go-grpc_opt=paths=source_relative \
 		--proto_path=api api/EventService.proto
-
+ 
 .PHONY: build run build-img run-img version test lint test-storage generate
