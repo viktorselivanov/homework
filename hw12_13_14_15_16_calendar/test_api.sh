@@ -20,8 +20,8 @@ RESPONSE=$(curl -s -w "\n%{http_code}" -X POST $BASE_URL/api/events \
     "at": "2025-12-01T15:00:00Z",
     "duration": "1h",
     "description": "Описание тестового события",
-    "user_id": "user1",
-    "notify_before": "15m"
+    "userId": "user1",
+    "notifyBefore": "15m"
   }')
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
@@ -76,8 +76,8 @@ RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT $BASE_URL/api/events/update \
     "at": "2025-12-01T16:00:00Z",
     "duration": "2h",
     "description": "Обновленное описание",
-    "user_id": "user1",
-    "notify_before": "30m"
+    "userId": "user1",
+    "notifyBefore": "30m"
   }')
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')

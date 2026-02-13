@@ -3,8 +3,8 @@ logger:
 
 server:
   host: "0.0.0.0"
-  http_port: 8080
-  grpc_port: 50051
+  httpPort: 8080
+  grpcPort: 50051
 
 storage:
   type: memory

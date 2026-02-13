@@ -63,13 +63,13 @@ func TestCreateEventHandler(t *testing.T) {
 	server := NewServer(logg, app, "127.0.0.1", 18080)
 
 	eventData := map[string]interface{}{
-		"id":            "test-1",
-		"title":         "Test Event",
-		"at":            time.Now().Format(time.RFC3339),
-		"duration":      "1h",
-		"description":   "Test description",
-		"user_id":       "user1",
-		"notify_before": "15m",
+		"id":           "test-1",
+		"title":        "Test Event",
+		"at":           time.Now().Format(time.RFC3339),
+		"duration":     "1h",
+		"description":  "Test description",
+		"userId":       "user1",
+		"notifyBefore": "15m",
 	}
 
 	body, _ := json.Marshal(eventData)

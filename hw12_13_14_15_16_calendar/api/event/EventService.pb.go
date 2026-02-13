@@ -31,8 +31,8 @@ type Event struct {
 	At            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=at,proto3" json:"at,omitempty"`
 	Duration      *durationpb.Duration   `protobuf:"bytes,4,opt,name=duration,proto3" json:"duration,omitempty"`
 	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	UserId        string                 `protobuf:"bytes,6,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	NotifyBefore  *durationpb.Duration   `protobuf:"bytes,7,opt,name=notify_before,json=notifyBefore,proto3" json:"notify_before,omitempty"`
+	UserId        string                 `protobuf:"bytes,6,opt,name=userId,json=userId,proto3" json:"userId,omitempty"`
+	NotifyBefore  *durationpb.Duration   `protobuf:"bytes,7,opt,name=notifyBefore,json=notifyBefore,proto3" json:"notifyBefore,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -839,8 +839,8 @@ const file_EventService_proto_rawDesc = "" +
 	"\x02at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x125\n" +
 	"\bduration\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\bduration\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x17\n" +
-	"\auser_id\x18\x06 \x01(\tR\x06userId\x12>\n" +
-	"\rnotify_before\x18\a \x01(\v2\x19.google.protobuf.DurationR\fnotifyBefore\"8\n" +
+	"\auserId\x18\x06 \x01(\tR\x06userId\x12>\n" +
+	"\rnotifyBefore\x18\a \x01(\v2\x19.google.protobuf.DurationR\fnotifyBefore\"8\n" +
 	"\x12CreateEventRequest\x12\"\n" +
 	"\x05event\x18\x01 \x01(\v2\f.event.EventR\x05event\"%\n" +
 	"\x13CreateEventResponse\x12\x0e\n" +
@@ -922,7 +922,7 @@ var file_EventService_proto_goTypes = []any{
 var file_EventService_proto_depIdxs = []int32{
 	17, // 0: event.Event.at:type_name -> google.protobuf.Timestamp
 	18, // 1: event.Event.duration:type_name -> google.protobuf.Duration
-	18, // 2: event.Event.notify_before:type_name -> google.protobuf.Duration
+	18, // 2: event.Event.notifyBefore:type_name -> google.protobuf.Duration
 	0,  // 3: event.CreateEventRequest.event:type_name -> event.Event
 	0,  // 4: event.UpdateEventRequest.event:type_name -> event.Event
 	0,  // 5: event.GetEventResponse.event:type_name -> event.Event

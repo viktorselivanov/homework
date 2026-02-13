@@ -38,7 +38,7 @@ func (s *Storage) Close(_ context.Context) error {
 
 func (s *Storage) CreateEvent(ctx context.Context, e storage.Event) error {
 	query := `
-		INSERT INTO events (id, title, at, duration, description, user_id, notify_before)
+		INSERT INTO events (id, title, at, duration, description, userId, notifyBefore)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := s.db.ExecContext(ctx, query, e.ID, e.Title, e.At, pqInterval(e.Duration),
@@ -52,7 +52,7 @@ func (s *Storage) CreateEvent(ctx context.Context, e storage.Event) error {
 func (s *Storage) UpdateEvent(ctx context.Context, e storage.Event) error {
 	query := `
 		UPDATE events
-		SET title = $2, at = $3, duration = $4, description = $5, user_id = $6, notify_before = $7
+		SET title = $2, at = $3, duration = $4, description = $5, userId = $6, notifyBefore = $7
 		WHERE id = $1
 	`
 	res, err := s.db.ExecContext(ctx, query, e.ID, e.Title, e.At,
@@ -85,11 +85,11 @@ func (s *Storage) GetEvent(ctx context.Context, id string) (storage.Event, error
 		At           time.Time      `db:"at"`
 		Duration     sql.NullString `db:"duration"`
 		Description  sql.NullString `db:"description"`
-		UserID       sql.NullString `db:"user_id"`
-		NotifyBefore sql.NullString `db:"notify_before"`
+		UserID       sql.NullString `db:"userId"`
+		NotifyBefore sql.NullString `db:"notifyBefore"`
 	}
 	err := s.db.GetContext(ctx, &e, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before 
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore 
 		FROM events 
 		WHERE id = $1`, id)
 	if err != nil {
@@ -155,8 +155,8 @@ func (s *Storage) rowsToEvents(rows *sqlx.Rows) ([]storage.Event, error) {
 			At           time.Time      `db:"at"`
 			Duration     sql.NullString `db:"duration"`
 			Description  sql.NullString `db:"description"`
-			UserID       sql.NullString `db:"user_id"`
-			NotifyBefore sql.NullString `db:"notify_before"`
+			UserID       sql.NullString `db:"userId"`
+			NotifyBefore sql.NullString `db:"notifyBefore"`
 		}
 
 		if err := rows.StructScan(&e); err != nil {
@@ -190,8 +190,7 @@ func (s *Storage) rowsToEvents(rows *sqlx.Rows) ([]storage.Event, error) {
 
 func (s *Storage) ListEvents(ctx context.Context) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before
-		FROM events 
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore		FROM events 
 		ORDER BY at`)
 	if err != nil {
 		return nil, err
@@ -202,8 +201,7 @@ func (s *Storage) ListEvents(ctx context.Context) ([]storage.Event, error) {
 
 func (s *Storage) ListEventsDay(ctx context.Context, dayStart time.Time) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before
-		FROM events 
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore		FROM events 
 		WHERE at >= $1 AND at < $2
 		ORDER BY at`, dayStart, dayStart.Add(24*time.Hour))
 	if err != nil {
@@ -215,8 +213,7 @@ func (s *Storage) ListEventsDay(ctx context.Context, dayStart time.Time) ([]stor
 
 func (s *Storage) ListEventsWeek(ctx context.Context, weekStart time.Time) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before
-		FROM events 
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore		FROM events 
 		WHERE at >= $1 AND at < $2
 		ORDER BY at`, weekStart, weekStart.Add(7*24*time.Hour))
 	if err != nil {
@@ -229,8 +226,7 @@ func (s *Storage) ListEventsWeek(ctx context.Context, weekStart time.Time) ([]st
 func (s *Storage) ListEventsMonth(ctx context.Context, monthStart time.Time) ([]storage.Event, error) {
 	end := time.Date(monthStart.Year(), monthStart.Month(), 1, 0, 0, 0, 0, monthStart.Location()).AddDate(0, 1, 0)
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before
-		FROM events
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore		FROM events
 		WHERE at >= $1 AND at < $2
 		ORDER BY at`, monthStart, end)
 	if err != nil {

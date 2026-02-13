@@ -14,8 +14,8 @@ message Event {
     google.protobuf.Timestamp at = 3;
     google.protobuf.Duration duration = 4;
     string description = 5;
-    string user_id = 6;
-    google.protobuf.Duration notify_before = 7;
+    string userId = 6;
+    google.protobuf.Duration notifyBefore = 7;
 }
 
 // CreateEventRequest - запрос на создание события

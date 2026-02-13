@@ -20,8 +20,8 @@ type LoggerConf struct {
 
 type ServerConf struct {
 	Host     string `yaml:"host"`
-	HTTPPort int    `yaml:"http_port"`
-	GRPCPort int    `yaml:"grpc_port"`
+	HTTPPort int    `yaml:"httpPort"`
+	GRPCPort int    `yaml:"grpcPort"`
 	// Для обратной совместимости
 	Port int `yaml:"port"`
 }

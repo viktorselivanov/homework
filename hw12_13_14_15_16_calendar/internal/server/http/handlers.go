@@ -15,8 +15,8 @@ type createEventRequest struct {
 	At           string `json:"at"`       // RFC3339 format
 	Duration     string `json:"duration"` // Go duration format (e.g., "1h30m")
 	Description  string `json:"description"`
-	UserID       string `json:"user_id"`
-	NotifyBefore string `json:"notify_before"` // Go duration format
+	UserID       string `json:"userId"`
+	NotifyBefore string `json:"notifyBefore"` // Go duration format
 }
 
 type updateEventRequest struct {
@@ -25,8 +25,8 @@ type updateEventRequest struct {
 	At           string `json:"at"`       // RFC3339 format
 	Duration     string `json:"duration"` // Go duration format
 	Description  string `json:"description"`
-	UserID       string `json:"user_id"`
-	NotifyBefore string `json:"notify_before"` // Go duration format
+	UserID       string `json:"userId"`
+	NotifyBefore string `json:"notifyBefore"` // Go duration format
 }
 
 type eventResponse struct {
@@ -35,8 +35,8 @@ type eventResponse struct {
 	At           string `json:"at"`       // RFC3339 format
 	Duration     string `json:"duration"` // Go duration format
 	Description  string `json:"description"`
-	UserID       string `json:"user_id"`
-	NotifyBefore string `json:"notify_before"` // Go duration format
+	UserID       string `json:"userId"`
+	NotifyBefore string `json:"notifyBefore"` // Go duration format
 }
 
 type errorResponse struct {
@@ -93,7 +93,7 @@ func (s *Server) createEventHandler(w http.ResponseWriter, r *http.Request) {
 	if req.NotifyBefore != "" {
 		notifyBefore, err = time.ParseDuration(req.NotifyBefore)
 		if err != nil {
-			respondError(w, http.StatusBadRequest, "Invalid notify_before format. Use Go duration format")
+			respondError(w, http.StatusBadRequest, "Invalid notifyBefore format. Use Go duration format")
 			return
 		}
 	}
@@ -149,7 +149,7 @@ func (s *Server) updateEventHandler(w http.ResponseWriter, r *http.Request) {
 	if req.NotifyBefore != "" {
 		notifyBefore, err = time.ParseDuration(req.NotifyBefore)
 		if err != nil {
-			respondError(w, http.StatusBadRequest, "Invalid notify_before format. Use Go duration format")
+			respondError(w, http.StatusBadRequest, "Invalid notifyBefore format. Use Go duration format")
 			return
 		}
 	}
