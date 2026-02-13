@@ -79,7 +79,6 @@ func NewConfigFromFile(path string) (Config, error) {
 	return cfg, nil
 }
 
-//nolint:gocognit, nestif, funlen
 func main() {
 	flag.Parse()
 
@@ -162,8 +161,25 @@ func main() {
 			NotifyBefore: 24 * time.Hour,
 		},
 	}
+	runAllTests(ctx, *calendarApp, events)
+}
 
-	// Тест 1: Создание событий
+func runAllTests(ctx context.Context, calendarApp app.App, events []storage.Event) {
+	fmt.Println("=== Тестирование хранилища календаря ===")
+	testCreateEvents(ctx, calendarApp, events)
+	testListEvents(ctx, calendarApp)
+	testGetEvent(ctx, calendarApp, events)
+	testUpdateEvent(ctx, calendarApp, events)
+	testListDay(ctx, calendarApp)
+	testListWeek(ctx, calendarApp)
+	testListMonth(ctx, calendarApp)
+	testDeleteEvent(ctx, calendarApp, events)
+	testFinalCheck(ctx, calendarApp)
+	fmt.Println("\n=== Тестирование завершено ===")
+}
+
+// Тест 1: Создание событий.
+func testCreateEvents(ctx context.Context, calendarApp app.App, events []storage.Event) {
 	fmt.Println("1. Создание событий:")
 	for i, e := range events {
 		if err := calendarApp.CreateEvent(ctx, e); err != nil {
@@ -173,8 +189,10 @@ func main() {
 		}
 	}
 	fmt.Println()
+}
 
-	// Тест 2: Получение всех событий
+// Тест 2: Получение всех событий.
+func testListEvents(ctx context.Context, calendarApp app.App) {
 	fmt.Println("2. Получение всех событий:")
 	allEvents, err := calendarApp.ListEvents(ctx)
 	if err != nil {
@@ -186,8 +204,10 @@ func main() {
 		}
 	}
 	fmt.Println()
+}
 
-	// Тест 3: Получение события по ID
+// Тест 3: Получение события по ID.
+func testGetEvent(ctx context.Context, calendarApp app.App, events []storage.Event) {
 	fmt.Println("3. Получение события по ID:")
 	if len(events) > 0 {
 		event, err := calendarApp.GetEvent(ctx, events[0].ID)
@@ -201,8 +221,10 @@ func main() {
 		}
 	}
 	fmt.Println()
+}
 
-	// Тест 4: Обновление события
+// Тест 4: Обновление события.
+func testUpdateEvent(ctx context.Context, calendarApp app.App, events []storage.Event) {
 	fmt.Println("4. Обновление события:")
 	if len(events) > 0 {
 		updatedEvent := events[0]
@@ -218,8 +240,11 @@ func main() {
 		}
 	}
 	fmt.Println()
+}
 
-	// Тест 5: Список событий за день
+// Тест 5: Список событий за день.
+func testListDay(ctx context.Context, calendarApp app.App) {
+	now := time.Now()
 	fmt.Println("5. Список событий за день:")
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	dayEvents, err := calendarApp.ListEventsDay(ctx, today)
@@ -232,9 +257,13 @@ func main() {
 		}
 	}
 	fmt.Println()
+}
 
-	// Тест 6: Список событий за неделю
+// Тест 6: Список событий за неделю.
+func testListWeek(ctx context.Context, calendarApp app.App) {
 	fmt.Println("6. Список событий за неделю:")
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	weekEvents, err := calendarApp.ListEventsWeek(ctx, today)
 	if err != nil {
 		fmt.Printf("   ❌ Ошибка при получении событий за неделю: %v\n", err)
@@ -245,9 +274,13 @@ func main() {
 		}
 	}
 	fmt.Println()
+}
 
-	// Тест 7: Список событий за месяц
+// Тест 7: Список событий за месяц.
+
+func testListMonth(ctx context.Context, calendarApp app.App) {
 	fmt.Println("7. Список событий за месяц:")
+	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	monthEvents, err := calendarApp.ListEventsMonth(ctx, monthStart)
 	if err != nil {
@@ -259,27 +292,40 @@ func main() {
 		}
 	}
 	fmt.Println()
+}
 
-	// Тест 8: Удаление события
+// Тест 8: Удаление события.
+func testDeleteEvent(ctx context.Context, calendarApp app.App, events []storage.Event) {
 	fmt.Println("8. Удаление события:")
-	if len(events) > 1 {
-		eventToDelete := events[1]
-		if err := calendarApp.DeleteEvent(ctx, eventToDelete.ID); err != nil {
-			fmt.Printf("   ❌ Ошибка при удалении события: %v\n", err)
-		} else {
-			fmt.Printf("   ✅ Событие удалено: %s\n", eventToDelete.Title)
-			// Проверяем, что событие действительно удалено
-			_, err := calendarApp.GetEvent(ctx, eventToDelete.ID)
-			if err != nil {
-				fmt.Printf("   ✅ Подтверждено: событие больше не существует\n")
-			} else {
-				fmt.Printf("   ⚠️  Предупреждение: событие все еще существует\n")
-			}
-		}
-	}
-	fmt.Println()
 
-	// Финальная проверка: сколько событий осталось
+	if len(events) <= 1 {
+		fmt.Println("   ⚠️ Нет достаточного количества событий для удаления")
+		fmt.Println()
+		return
+	}
+
+	eventToDelete := events[1]
+	if err := calendarApp.DeleteEvent(ctx, eventToDelete.ID); err != nil {
+		fmt.Printf("   ❌ Ошибка при удалении события: %v\n", err)
+		fmt.Println()
+		return
+	}
+
+	fmt.Printf("   ✅ Событие удалено: %s\n", eventToDelete.Title)
+
+	// Проверяем, что событие действительно удалено
+	_, err := calendarApp.GetEvent(ctx, eventToDelete.ID)
+	if err != nil {
+		fmt.Printf("   ✅ Подтверждено: событие больше не существует\n")
+	} else {
+		fmt.Printf("   ⚠️  Предупреждение: событие все еще существует\n")
+	}
+
+	fmt.Println()
+}
+
+// Финальная проверка: сколько событий осталось.
+func testFinalCheck(ctx context.Context, calendarApp app.App) {
 	fmt.Println("9. Финальная проверка:")
 	finalEvents, err := calendarApp.ListEvents(ctx)
 	if err != nil {
