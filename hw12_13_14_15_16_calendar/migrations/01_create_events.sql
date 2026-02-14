@@ -7,10 +7,10 @@ CREATE TABLE IF NOT EXISTS events (
     at TIMESTAMPTZ NOT NULL,
     duration INTERVAL,
     description TEXT,
-    user_id TEXT,
-    notify_before INTERVAL
+    userId TEXT,
+    notifyBefore INTERVAL
 );
 
 -- +goose Down
 CREATE INDEX IF NOT EXISTS idx_events_at ON events (at);
-CREATE INDEX IF NOT EXISTS idx_events_user_at ON events (user_id, at);
+CREATE INDEX IF NOT EXISTS idx_events_user_at ON events (userId, at);

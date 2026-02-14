@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/app"
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/logger"
+	internalgrpc "github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/server/grpc"
 	internalhttp "github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/server/http"
 	memorystorage "github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/storage/memory"
 	sqlstorage "github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/storage/sql"
@@ -23,23 +23,16 @@ func init() {
 }
 
 func main() {
-	if err := run(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
-func run() error {
 	flag.Parse()
 
 	if flag.Arg(0) == "version" {
 		printVersion()
-		return nil
+		return
 	}
 
 	cfg, err := NewConfigFromFile(configFile)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		panic("failed to load config: " + err.Error())
 	}
 
 	logg := logger.New(cfg.Logger.Level)
@@ -49,15 +42,19 @@ func run() error {
 	case "sql":
 		sql := sqlstorage.New(cfg.DB.DSN)
 		if err := sql.Connect(context.Background()); err != nil {
-			return fmt.Errorf("failed to connect to db: %w", err)
+			logg.Error("failed to connect to db: " + err.Error())
+			os.Exit(1)
 		}
+
 		storage = sql
 	default:
 		storage = memorystorage.New()
 	}
 
 	calendar := app.New(logg, storage)
-	server := internalhttp.NewServer(logg, calendar, cfg.Server.Host, cfg.Server.Port)
+
+	httpServer := internalhttp.NewServer(logg, calendar, cfg.Server.Host, cfg.Server.HTTPPort)
+	grpcServer := internalgrpc.NewServer(logg, calendar, cfg.Server.Host, cfg.Server.GRPCPort)
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -66,19 +63,31 @@ func run() error {
 	go func() {
 		<-ctx.Done()
 
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer shutdownCancel()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		defer cancel()
 
-		if err := server.Stop(shutdownCtx); err != nil {
+		if err := httpServer.Stop(ctx); err != nil {
 			logg.Error("failed to stop http server: " + err.Error())
+		}
+		if err := grpcServer.Stop(ctx); err != nil {
+			logg.Error("failed to stop grpc server: " + err.Error())
 		}
 	}()
 
 	logg.Info("calendar is running...")
 
-	if err := server.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start http server: %w", err)
-	}
+	// Запускаем оба сервера в отдельных горутинах
+	go func() {
+		if err := grpcServer.Start(ctx); err != nil {
+			logg.Error("failed to start grpc server: " + err.Error())
+			cancel()
+		}
+	}()
 
-	return nil
+	// HTTP сервер запускаем в основной горутине
+	if err := httpServer.Start(ctx); err != nil {
+		logg.Error("failed to start http server: " + err.Error())
+		cancel()
+		os.Exit(1) //nolint:gocritic
+	}
 }

@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	// Драйвер postgres.
+	_ "github.com/lib/pq"
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/storage"
 )
-
-var ErrNotFound = errors.New("event not found")
 
 type Storage struct {
 	db  *sqlx.DB
@@ -40,7 +40,7 @@ func (s *Storage) Close(_ context.Context) error {
 
 func (s *Storage) CreateEvent(ctx context.Context, e storage.Event) error {
 	query := `
-		INSERT INTO events (id, title, at, duration, description, user_id, notify_before)
+		INSERT INTO events (id, title, at, duration, description, userId, notifyBefore)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := s.db.ExecContext(ctx, query, e.ID, e.Title, e.At, pqInterval(e.Duration),
@@ -54,7 +54,7 @@ func (s *Storage) CreateEvent(ctx context.Context, e storage.Event) error {
 func (s *Storage) UpdateEvent(ctx context.Context, e storage.Event) error {
 	query := `
 		UPDATE events
-		SET title = $2, at = $3, duration = $4, description = $5, user_id = $6, notify_before = $7
+		SET title = $2, at = $3, duration = $4, description = $5, userId = $6, notifyBefore = $7
 		WHERE id = $1
 	`
 	res, err := s.db.ExecContext(ctx, query, e.ID, e.Title, e.At,
@@ -64,7 +64,7 @@ func (s *Storage) UpdateEvent(ctx context.Context, e storage.Event) error {
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return ErrNotFound
+		return storage.ErrNotFound
 	}
 	return nil
 }
@@ -75,7 +75,7 @@ func (s *Storage) DeleteEvent(ctx context.Context, id string) error {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
+		return storage.ErrNotFound
 	}
 	return nil
 }
@@ -87,16 +87,16 @@ func (s *Storage) GetEvent(ctx context.Context, id string) (storage.Event, error
 		At           time.Time      `db:"at"`
 		Duration     sql.NullString `db:"duration"`
 		Description  sql.NullString `db:"description"`
-		UserID       sql.NullString `db:"user_id"`
-		NotifyBefore sql.NullString `db:"notify_before"`
+		UserID       sql.NullString `db:"userId"`
+		NotifyBefore sql.NullString `db:"notifyBefore"`
 	}
 	err := s.db.GetContext(ctx, &e, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before 
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore 
 		FROM events 
 		WHERE id = $1`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return storage.Event{}, ErrNotFound
+			return storage.Event{}, storage.ErrNotFound
 		}
 		return storage.Event{}, err
 	}
@@ -157,8 +157,8 @@ func (s *Storage) rowsToEvents(rows *sqlx.Rows) ([]storage.Event, error) {
 			At           time.Time      `db:"at"`
 			Duration     sql.NullString `db:"duration"`
 			Description  sql.NullString `db:"description"`
-			UserID       sql.NullString `db:"user_id"`
-			NotifyBefore sql.NullString `db:"notify_before"`
+			UserID       sql.NullString `db:"userId"`
+			NotifyBefore sql.NullString `db:"notifyBefore"`
 		}
 
 		if err := rows.StructScan(&e); err != nil {
@@ -192,7 +192,7 @@ func (s *Storage) rowsToEvents(rows *sqlx.Rows) ([]storage.Event, error) {
 
 func (s *Storage) ListEvents(ctx context.Context) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore
 		FROM events 
 		ORDER BY at`)
 	if err != nil {
@@ -204,7 +204,7 @@ func (s *Storage) ListEvents(ctx context.Context) ([]storage.Event, error) {
 
 func (s *Storage) ListEventsDay(ctx context.Context, dayStart time.Time) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore
 		FROM events 
 		WHERE at >= $1 AND at < $2
 		ORDER BY at`, dayStart, dayStart.Add(24*time.Hour))
@@ -217,7 +217,7 @@ func (s *Storage) ListEventsDay(ctx context.Context, dayStart time.Time) ([]stor
 
 func (s *Storage) ListEventsWeek(ctx context.Context, weekStart time.Time) ([]storage.Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore
 		FROM events 
 		WHERE at >= $1 AND at < $2
 		ORDER BY at`, weekStart, weekStart.Add(7*24*time.Hour))
@@ -231,7 +231,7 @@ func (s *Storage) ListEventsWeek(ctx context.Context, weekStart time.Time) ([]st
 func (s *Storage) ListEventsMonth(ctx context.Context, monthStart time.Time) ([]storage.Event, error) {
 	end := time.Date(monthStart.Year(), monthStart.Month(), 1, 0, 0, 0, 0, monthStart.Location()).AddDate(0, 1, 0)
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT id, title, at, duration::text as duration, description, user_id, notify_before::text as notify_before
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore
 		FROM events
 		WHERE at >= $1 AND at < $2
 		ORDER BY at`, monthStart, end)
@@ -240,4 +240,39 @@ func (s *Storage) ListEventsMonth(ctx context.Context, monthStart time.Time) ([]
 	}
 	defer rows.Close()
 	return s.rowsToEvents(rows)
+}
+
+// EventsToNotify возвращает события, для которых нужно отправить уведомление
+// Событие должно быть выбрано, если текущее время >= (At - NotifyBefore)
+// и событие еще не произошло (At > now).
+func (s *Storage) EventsToNotify(ctx context.Context, now time.Time) ([]storage.Event, error) {
+	// SQL запрос выбирает события, где:
+	// 1. notifyBefore IS NOT NULL (есть настройка уведомления)
+	// 2. at > now (событие еще не произошло)
+	// 3. (at - notifyBefore) <= now (время уведомления наступило или прошло)
+	rows, err := s.db.QueryxContext(ctx, `
+		SELECT id, title, at, duration::text as duration, description, userId, notifyBefore::text as notifyBefore
+		FROM events
+		WHERE notifyBefore IS NOT NULL
+		  AND at > $1
+		  AND (at - notifyBefore) <= $1
+		ORDER BY at`, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return s.rowsToEvents(rows)
+}
+
+// DeleteOldEvents удаляет события, произошедшие более 1 года назад.
+func (s *Storage) DeleteOldEvents(ctx context.Context, before time.Time) (int, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM events WHERE at < $1`, before)
+	if err != nil {
+		return 0, err
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
 }
