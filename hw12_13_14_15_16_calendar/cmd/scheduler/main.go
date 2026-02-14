@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/app"
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/logger"
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/rabbitmq"
@@ -47,15 +48,31 @@ func main() {
 
 	calendar := app.New(logg, storage)
 
-	// Подключаемся к RabbitMQ
+	// Подключаемся к RabbitMQ с retry
 	rmqClient := rabbitmq.NewClient(cfg.RabbitMQ.URL)
-	if err := rmqClient.Connect(context.Background()); err != nil {
-		logg.Error("failed to connect to RabbitMQ: " + err.Error())
-		_ = rmqClient.Close()
-		os.Exit(1)
+	ctxConnect, cancelConnect := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelConnect()
+
+	maxRetries := 10
+	retryInterval := 3 * time.Second
+	for i := 0; i < maxRetries; i++ {
+		if err := rmqClient.Connect(ctxConnect); err == nil {
+			break
+		}
+		if i < maxRetries-1 {
+			logg.Debug(fmt.Sprintf(
+				"failed to connect to RabbitMQ (attempt %d/%d), retrying in %v...",
+				i+1, maxRetries,
+				retryInterval))
+			time.Sleep(retryInterval)
+		} else {
+			logg.Error("failed to connect to RabbitMQ after " + fmt.Sprintf("%d attempts", maxRetries))
+			_ = rmqClient.Close()
+			os.Exit(1) //nolint:gocritic
+		}
 	}
 
-	defer logg.Info("scheduler is running...")
+	logg.Info("scheduler is running...")
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -129,7 +146,8 @@ func processEvents(
 			"notification sent for event %s (user: %s, date: %s)",
 			event.ID,
 			event.UserID,
-			event.At.Format(time.RFC3339)))
+			event.At.Format(time.RFC3339),
+		))
 	}
 
 	// Удаляем старые события (более 1 года назад)

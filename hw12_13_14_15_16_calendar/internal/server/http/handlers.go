@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/storage"
 )
 
@@ -99,8 +100,19 @@ func (s *Server) createEventHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Проверяем ID, если он передан
+	eventID := req.ID
+	if eventID != "" {
+		// Проверяем, что переданный ID является валидным UUID
+		if _, err := uuid.Parse(eventID); err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid ID format. Must be a valid UUID")
+			return
+		}
+	}
+	// Если ID не передан, оставляем пустым - БД сгенерирует его автоматически
+
 	event := storage.Event{
-		ID:           req.ID,
+		ID:           eventID,
 		Title:        req.Title,
 		At:           at,
 		Duration:     duration,
@@ -118,11 +130,29 @@ func (s *Server) createEventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, eventResponse{ID: event.ID})
+	// Если ID был пустым, получаем созданное событие обратно
+	if event.ID == "" {
+		// Находим событие по title, at, userId (последнее созданное)
+		events, err := s.app.ListEvents(r.Context())
+		if err == nil {
+			// Ищем последнее событие с такими же параметрами
+			for i := len(events) - 1; i >= 0; i-- {
+				if events[i].Title == event.Title &&
+					events[i].At.Equal(event.At) &&
+					events[i].UserID == event.UserID {
+					event = events[i]
+					break
+				}
+			}
+		}
+	}
+
+	respondJSON(w, http.StatusCreated, domainEventToResponse(event))
 }
 
 func (s *Server) updateEventHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
+	// Поддерживаем как PUT, так и POST для обратной совместимости
+	if r.Method != http.MethodPut && r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -294,102 +324,6 @@ func (s *Server) listEventsWeekHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listEventsMonthHandler(w http.ResponseWriter, r *http.Request) {
 	s.listEventsByParamHandler(w, r, "month_start", s.app.ListEventsMonth)
 }
-
-// func (s *Server) listEventsDayHandler(w http.ResponseWriter, r *http.Request) {
-// 	if r.Method != http.MethodGet {
-// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-// 		return
-// 	}
-
-// 	dayStartStr := r.URL.Query().Get("day_start")
-// 	if dayStartStr == "" {
-// 		respondError(w, http.StatusBadRequest, "day_start parameter is required (RFC3339 format)")
-// 		return
-// 	}
-
-// 	dayStart, err := time.Parse(time.RFC3339, dayStartStr)
-// 	if err != nil {
-// 		respondError(w, http.StatusBadRequest, "Invalid day_start format. Use RFC3339 format")
-// 		return
-// 	}
-
-// 	events, err := s.app.ListEventsDay(r.Context(), dayStart)
-// 	if err != nil {
-// 		respondError(w, http.StatusInternalServerError, err.Error())
-// 		return
-// 	}
-
-// 	response := make([]eventResponse, 0, len(events))
-// 	for _, e := range events {
-// 		response = append(response, domainEventToResponse(e))
-// 	}
-
-// 	respondJSON(w, http.StatusOK, response)
-// }
-
-// func (s *Server) listEventsWeekHandler(w http.ResponseWriter, r *http.Request) {
-// 	if r.Method != http.MethodGet {
-// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-// 		return
-// 	}
-
-// 	weekStartStr := r.URL.Query().Get("week_start")
-// 	if weekStartStr == "" {
-// 		respondError(w, http.StatusBadRequest, "week_start parameter is required (RFC3339 format)")
-// 		return
-// 	}
-
-// 	weekStart, err := time.Parse(time.RFC3339, weekStartStr)
-// 	if err != nil {
-// 		respondError(w, http.StatusBadRequest, "Invalid week_start format. Use RFC3339 format")
-// 		return
-// 	}
-
-// 	events, err := s.app.ListEventsWeek(r.Context(), weekStart)
-// 	if err != nil {
-// 		respondError(w, http.StatusInternalServerError, err.Error())
-// 		return
-// 	}
-
-// 	response := make([]eventResponse, 0, len(events))
-// 	for _, e := range events {
-// 		response = append(response, domainEventToResponse(e))
-// 	}
-
-// 	respondJSON(w, http.StatusOK, response)
-// }
-
-// func (s *Server) listEventsMonthHandler(w http.ResponseWriter, r *http.Request) {
-// 	if r.Method != http.MethodGet {
-// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-// 		return
-// 	}
-
-// 	monthStartStr := r.URL.Query().Get("month_start")
-// 	if monthStartStr == "" {
-// 		respondError(w, http.StatusBadRequest, "month_start parameter is required (RFC3339 format)")
-// 		return
-// 	}
-
-// 	monthStart, err := time.Parse(time.RFC3339, monthStartStr)
-// 	if err != nil {
-// 		respondError(w, http.StatusBadRequest, "Invalid month_start format. Use RFC3339 format")
-// 		return
-// 	}
-
-// 	events, err := s.app.ListEventsMonth(r.Context(), monthStart)
-// 	if err != nil {
-// 		respondError(w, http.StatusInternalServerError, err.Error())
-// 		return
-// 	}
-
-// 	response := make([]eventResponse, 0, len(events))
-// 	for _, e := range events {
-// 		response = append(response, domainEventToResponse(e))
-// 	}
-
-// 	respondJSON(w, http.StatusOK, response)
-// }
 
 func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")

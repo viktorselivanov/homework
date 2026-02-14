@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/logger"
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/rabbitmq"
 )
@@ -19,6 +21,7 @@ func init() {
 	flag.StringVar(&configFile, "config", "", "Path to configuration file")
 }
 
+//nolint:gocognit
 func main() {
 	flag.Parse()
 
@@ -35,24 +38,64 @@ func main() {
 
 	logg := logger.New(cfg.Logger.Level)
 
-	// Подключаемся к RabbitMQ
-	rmqClient := rabbitmq.NewClient(cfg.RabbitMQ.URL)
-	if err := rmqClient.Connect(context.Background()); err != nil {
-		logg.Error("failed to connect to RabbitMQ: " + err.Error())
-		rmqClient.Close()
-		os.Exit(1)
+	// Подключаемся к БД (если указан DSN)
+	var db *sql.DB
+	if cfg.DB.DSN != "" {
+		var err error
+		db, err = sql.Open("postgres", cfg.DB.DSN)
+		if err != nil {
+			logg.Error("failed to open database: " + err.Error())
+
+			os.Exit(1)
+		}
+		defer db.Close()
+
+		// Проверяем подключение
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := db.PingContext(ctx); err != nil {
+			logg.Error("failed to ping database: " + err.Error())
+			os.Exit(1) //nolint:gocritic
+		}
+		logg.Info("connected to database")
 	}
+
+	// Подключаемся к RabbitMQ с retry
+	rmqClient := rabbitmq.NewClient(cfg.RabbitMQ.URL)
+	ctxConnect, cancelConnect := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelConnect()
+
+	maxRetries := 10
+	retryInterval := 3 * time.Second
+	for i := 0; i < maxRetries; i++ {
+		if err := rmqClient.Connect(ctxConnect); err == nil {
+			break
+		}
+		if i < maxRetries-1 {
+			logg.Debug(fmt.Sprintf(
+				"failed to connect to RabbitMQ (attempt %d/%d), retrying in %v...",
+				i+1,
+				maxRetries,
+				retryInterval,
+			))
+			time.Sleep(retryInterval)
+		} else {
+			logg.Error("failed to connect to RabbitMQ after " + fmt.Sprintf("%d attempts", maxRetries))
+			os.Exit(1)
+		}
+	}
+	defer rmqClient.Close()
 
 	logg.Info("sender is running...")
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	defer cancel()
 
 	// Начинаем чтение сообщений из очереди
 	messageChan, err := rmqClient.Consume(ctx, cfg.RabbitMQ.QueueName)
 	if err != nil {
 		logg.Error("failed to start consuming messages: " + err.Error())
-		cancel()
 		os.Exit(1)
 	}
 
@@ -88,7 +131,14 @@ func main() {
 			}
 
 			// Отправляем уведомление (логируем в STDOUT)
-			sendNotification(logg, notification)
+			if err := sendNotification(ctx, logg, db, notification); err != nil {
+				logg.Error("failed to send notification: " + err.Error())
+				// Отклоняем сообщение с повторной постановкой в очередь
+				if err := msg.Nack(); err != nil {
+					logg.Error("failed to nack message: " + err.Error())
+				}
+				continue
+			}
 
 			// Подтверждаем обработку сообщения
 			if err := msg.Ack(); err != nil {
@@ -98,7 +148,7 @@ func main() {
 	}
 }
 
-func sendNotification(logg *logger.Logger, notification *rabbitmq.Notification) {
+func sendNotification(ctx context.Context, logg *logger.Logger, db *sql.DB, notification *rabbitmq.Notification) error {
 	// Выводим уведомление в STDOUT (как требуется в задании)
 	message := fmt.Sprintf(
 		"[NOTIFICATION] Event: %s | Title: %s | Date: %s | User: %s",
@@ -109,5 +159,18 @@ func sendNotification(logg *logger.Logger, notification *rabbitmq.Notification) 
 	)
 
 	fmt.Println(message)
-	logg.Info(fmt.Sprintf("notification sent: eventId=%s, userId=%s", notification.EventID, notification.UserID))
+	logg.Info(fmt.Sprintf("notification sent: event_id=%s, userId=%s", notification.EventID, notification.UserID))
+
+	// Сохраняем статус уведомления в БД, если подключение есть
+	if db != nil {
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO notifications (event_id, userId, title, event_date, status, sent_at)
+			VALUES ($1, $2, $3, $4, 'sent', NOW())
+		`, notification.EventID, notification.UserID, notification.Title, notification.EventDate)
+		if err != nil {
+			return fmt.Errorf("failed to save notification status: %w", err)
+		}
+	}
+
+	return nil
 }

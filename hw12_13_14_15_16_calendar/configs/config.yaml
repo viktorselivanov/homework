@@ -3,7 +3,7 @@ logger:
 
 server:
   host: "0.0.0.0"
-  httpPort: 8080
+  httpPort: 8888
   grpcPort: 50051
 
 storage:

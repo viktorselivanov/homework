@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_URL="http://localhost:8080"
+BASE_URL="http://localhost:8888"
 
 echo "=== Тестирование HTTP API календаря ==="
 echo ""
