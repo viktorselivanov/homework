@@ -1,0 +1,12 @@
+FROM golang:1.23
+
+WORKDIR /build
+
+ENV GOTOOLCHAIN=auto
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+CMD ["go", "test", "-v", "-tags=integration", "./internal/integration/..."]

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -19,8 +20,11 @@ type LoggerConf struct {
 }
 
 type ServerConf struct {
-	Host string `toml:"host"`
-	Port int    `toml:"port"`
+	Host     string `yaml:"host"`
+	HTTPPort int    `yaml:"httpPort"`
+	GRPCPort int    `yaml:"grpcPort"`
+	// Для обратной совместимости
+	Port int `yaml:"port"`
 }
 
 type StorageConf struct {
@@ -46,6 +50,30 @@ func NewConfigFromFile(path string) (Config, error) {
 		return Config{}, err
 	}
 
+	// Переопределяем из переменных окружения, если они заданы
+	if level := os.Getenv("LOG_LEVEL"); level != "" {
+		cfg.Logger.Level = level
+	}
+	if host := os.Getenv("SERVER_HOST"); host != "" {
+		cfg.Server.Host = host
+	}
+	if port := os.Getenv("httpPort"); port != "" {
+		if p, err := strconv.Atoi(port); err == nil {
+			cfg.Server.HTTPPort = p
+		}
+	}
+	if port := os.Getenv("grpcPort"); port != "" {
+		if p, err := strconv.Atoi(port); err == nil {
+			cfg.Server.GRPCPort = p
+		}
+	}
+	if storageType := os.Getenv("STORAGE_TYPE"); storageType != "" {
+		cfg.Storage.Type = storageType
+	}
+	if dsn := os.Getenv("DB_DSN"); dsn != "" {
+		cfg.DB.DSN = dsn
+	}
+
 	// defaults
 	if cfg.Logger.Level == "" {
 		cfg.Logger.Level = "info"
@@ -53,8 +81,15 @@ func NewConfigFromFile(path string) (Config, error) {
 	if cfg.Server.Host == "" {
 		cfg.Server.Host = "0.0.0.0"
 	}
-	if cfg.Server.Port == 0 {
-		cfg.Server.Port = 8080
+	// Обратная совместимость: если указан старый port, используем его для HTTP
+	if cfg.Server.Port != 0 && cfg.Server.HTTPPort == 0 {
+		cfg.Server.HTTPPort = cfg.Server.Port
+	}
+	if cfg.Server.HTTPPort == 0 {
+		cfg.Server.HTTPPort = 8080
+	}
+	if cfg.Server.GRPCPort == 0 {
+		cfg.Server.GRPCPort = 50051
 	}
 	if cfg.Storage.Type == "" {
 		cfg.Storage.Type = "memory"

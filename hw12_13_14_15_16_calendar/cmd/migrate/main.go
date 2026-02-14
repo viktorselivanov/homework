@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib" // Registers "pgx" driver
 	"github.com/pressly/goose/v3"
 )
 
