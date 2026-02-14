@@ -1,6 +1,36 @@
 package main
 
+import (
+	"fmt"
+	"os"
+	"time"
+)
+
 func main() {
-	// Place your code here,
-	// P.S. Do not rush to throw context down, think think if it is useful with blocking operation?
+	address := "localhost:4242"
+	timeout := 10 * time.Second
+
+	client := NewTelnetClient(address, timeout, os.Stdin, os.Stdout)
+
+	if err := client.Connect(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	done := make(chan struct{}, 2)
+
+	go func() {
+		_ = client.Send()
+		done <- struct{}{}
+	}()
+
+	go func() {
+		_ = client.Receive()
+		done <- struct{}{}
+	}()
+
+	// ждём завершения одной из сторон
+	<-done
+
+	_ = client.Close()
 }

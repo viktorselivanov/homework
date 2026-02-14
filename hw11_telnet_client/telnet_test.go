@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -62,4 +63,137 @@ func TestTelnetClient(t *testing.T) {
 
 		wg.Wait()
 	})
+}
+
+func TestTelnetClient_ConnectionTimeout(t *testing.T) {
+	timeout := 100 * time.Millisecond
+	client := NewTelnetClient(
+		"127.0.0.1:65000",
+		timeout,
+		io.NopCloser(&bytes.Buffer{}),
+		&bytes.Buffer{},
+	)
+
+	err := client.Connect()
+	require.Error(t, err)
+}
+
+func TestTelnetClient_ReceiveAfterServerClose(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:")
+	require.NoError(t, err)
+	defer l.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+
+		in := &bytes.Buffer{}
+		out := &bytes.Buffer{}
+		timeout := time.Second
+
+		client := NewTelnetClient(l.Addr().String(), timeout, io.NopCloser(in), out)
+		require.NoError(t, client.Connect())
+
+		recvErr := client.Receive()
+		require.True(t, recvErr == nil || errors.Is(recvErr, io.EOF))
+
+		require.NoError(t, client.Close())
+	}()
+
+	go func() {
+		defer wg.Done()
+		conn, err := l.Accept()
+		require.NoError(t, err)
+		conn.Close()
+	}()
+
+	wg.Wait()
+}
+
+func TestTelnetClient_SendAfterClose(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:")
+	require.NoError(t, err)
+	defer l.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+
+		in := &bytes.Buffer{}
+		out := &bytes.Buffer{}
+		timeout := time.Second
+
+		client := NewTelnetClient(l.Addr().String(), timeout, io.NopCloser(in), out)
+		require.NoError(t, client.Connect())
+		require.NoError(t, client.Close())
+
+		in.WriteString("test\n")
+		err := client.Send()
+		require.Error(t, err)
+	}()
+
+	go func() {
+		defer wg.Done()
+		conn, err := l.Accept()
+		require.NoError(t, err)
+		defer conn.Close()
+	}()
+
+	wg.Wait()
+}
+
+func TestTelnetClient_MultipleSendReceive(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:")
+	require.NoError(t, err)
+	defer l.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+
+		out := &bytes.Buffer{}
+		timeout := 2 * time.Second
+
+		// создаём клиент с nil in, будем подменять перед каждым Send
+		client := NewTelnetClient(l.Addr().String(), timeout, nil, out)
+		require.NoError(t, client.Connect())
+		defer client.Close()
+
+		for i := 0; i < 3; i++ {
+			in := bytes.NewBufferString("ping\n")
+			client.(*telnetClient).in = io.NopCloser(in)
+
+			require.NoError(t, client.Send())
+			require.NoError(t, client.Receive())
+		}
+
+		require.Equal(t, "pong\npong\npong\n", out.String())
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		conn, err := l.Accept()
+		require.NoError(t, err)
+		defer conn.Close()
+
+		buf := make([]byte, 16)
+
+		for i := 0; i < 3; i++ {
+			n, err := conn.Read(buf)
+			require.NoError(t, err)
+			require.Equal(t, "ping\n", string(buf[:n]))
+
+			_, err = conn.Write([]byte("pong\n"))
+			require.NoError(t, err)
+		}
+	}()
+
+	wg.Wait()
 }
