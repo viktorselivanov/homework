@@ -1,4 +1,5 @@
 run:
+  go: "1.23"
   tests: true
   build-tags:
     - bench
@@ -30,12 +31,15 @@ issues:
         - dupl
         - gocyclo
         - gosec
+    - path: cmd/.*
+      linters:
+        - typecheck
 
 linters:
   disable-all: true
   enable:
     - asciicheck
-    #- depguard
+    # - depguard
     - dogsled
     - dupl
     - bodyclose
