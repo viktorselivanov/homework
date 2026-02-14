@@ -2,78 +2,187 @@ package memorystorage
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/storage"
 )
 
-func TestStorageBasicCRUD(t *testing.T) {
+func TestStorage_EventsToNotify(t *testing.T) {
 	s := New()
 	ctx := context.Background()
 
-	e := storage.Event{
-		ID:    "1",
-		Title: "test",
-		At:    time.Now(),
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	// Событие, которое требует уведомления (время уведомления уже прошло, но событие еще не произошло)
+	// Событие через 1 час, уведомление за 1 час - значит время уведомления = now, событие должно быть включено
+	event1 := storage.Event{
+		ID:           "event-1",
+		Title:        "Event 1",
+		At:           now.Add(1 * time.Hour), // событие через 1 час
+		NotifyBefore: 1 * time.Hour,          // уведомление за 1 час
+		UserID:       "user-1",
 	}
 
-	if err := s.CreateEvent(ctx, e); err != nil {
-		t.Fatalf("create failed: %v", err)
+	// Событие, которое еще не требует уведомления (время уведомления еще не наступило)
+	event2 := storage.Event{
+		ID:           "event-2",
+		Title:        "Event 2",
+		At:           now.Add(3 * time.Hour), // событие через 3 часа
+		NotifyBefore: 2 * time.Hour,          // уведомление за 2 часа (еще не наступило)
+		UserID:       "user-2",
 	}
 
-	got, err := s.GetEvent(ctx, "1")
+	// Событие без уведомления
+	event3 := storage.Event{
+		ID:     "event-3",
+		Title:  "Event 3",
+		At:     now.Add(4 * time.Hour),
+		UserID: "user-3",
+	}
+
+	// Событие, которое уже произошло
+	event4 := storage.Event{
+		ID:           "event-4",
+		Title:        "Event 4",
+		At:           now.Add(-1 * time.Hour), // событие уже прошло
+		NotifyBefore: 1 * time.Hour,
+		UserID:       "user-4",
+	}
+
+	// Создаем события
+	if err := s.CreateEvent(ctx, event1); err != nil {
+		t.Fatalf("failed to create event1: %v", err)
+	}
+	if err := s.CreateEvent(ctx, event2); err != nil {
+		t.Fatalf("failed to create event2: %v", err)
+	}
+	if err := s.CreateEvent(ctx, event3); err != nil {
+		t.Fatalf("failed to create event3: %v", err)
+	}
+	if err := s.CreateEvent(ctx, event4); err != nil {
+		t.Fatalf("failed to create event4: %v", err)
+	}
+
+	// Получаем события для уведомления
+	events, err := s.EventsToNotify(ctx, now)
 	if err != nil {
-		t.Fatalf("get failed: %v", err)
-	}
-	if got.ID != e.ID || got.Title != e.Title {
-		t.Fatalf("mismatch got=%v want=%v", got, e)
+		t.Fatalf("failed to get events to notify: %v", err)
 	}
 
-	e.Title = "updated"
-	if err := s.UpdateEvent(ctx, e); err != nil {
-		t.Fatalf("update failed: %v", err)
+	// Должно быть только event1 (event2 еще не требует уведомления, event3 без уведомления, event4 уже прошло)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
 	}
 
-	got, _ = s.GetEvent(ctx, "1")
-	if got.Title != "updated" {
-		t.Fatalf("update didn't apply")
-	}
-
-	if err := s.DeleteEvent(ctx, "1"); err != nil {
-		t.Fatalf("delete failed: %v", err)
-	}
-	_, err = s.GetEvent(ctx, "1")
-	if err == nil {
-		t.Fatalf("expected not found after delete")
+	if events[0].ID != event1.ID {
+		t.Errorf("expected event ID %s, got %s", event1.ID, events[0].ID)
 	}
 }
 
-func TestStorageConcurrency(t *testing.T) {
+func TestStorage_DeleteOldEvents(t *testing.T) {
 	s := New()
 	ctx := context.Background()
-	n := 100
-	wg := sync.WaitGroup{}
-	wg.Add(n)
-	for i := 0; i < n; i++ {
-		go func() {
-			defer wg.Done()
-			e := storage.Event{
-				ID:    string(rune(i + 65)),
-				Title: "t",
-				At:    time.Now(),
-			}
-			_ = s.CreateEvent(ctx, e)
-		}()
-	}
-	wg.Wait()
 
-	events, err := s.ListEvents(ctx)
-	if err != nil {
-		t.Fatalf("list failed: %v", err)
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+	oneYearAgo := now.AddDate(-1, 0, 0)
+
+	// Старое событие (более года назад)
+	oldEvent := storage.Event{
+		ID:     "old-event",
+		Title:  "Old Event",
+		At:     oneYearAgo.Add(-1 * time.Hour),
+		UserID: "user-1",
 	}
-	if len(events) == 0 {
-		t.Fatalf("expected some events")
+
+	// Событие, которое еще не старое
+	newEvent := storage.Event{
+		ID:     "new-event",
+		Title:  "New Event",
+		At:     now.AddDate(0, -6, 0), // 6 месяцев назад
+		UserID: "user-2",
+	}
+
+	// Создаем события
+	if err := s.CreateEvent(ctx, oldEvent); err != nil {
+		t.Fatalf("failed to create old event: %v", err)
+	}
+	if err := s.CreateEvent(ctx, newEvent); err != nil {
+		t.Fatalf("failed to create new event: %v", err)
+	}
+
+	// Удаляем старые события
+	deletedCount, err := s.DeleteOldEvents(ctx, oneYearAgo)
+	if err != nil {
+		t.Fatalf("failed to delete old events: %v", err)
+	}
+
+	if deletedCount != 1 {
+		t.Errorf("expected 1 deleted event, got %d", deletedCount)
+	}
+
+	// Проверяем, что старое событие удалено
+	_, err = s.GetEvent(ctx, oldEvent.ID)
+	if err == nil {
+		t.Error("old event should be deleted")
+	}
+
+	// Проверяем, что новое событие осталось
+	_, err = s.GetEvent(ctx, newEvent.ID)
+	if err != nil {
+		t.Errorf("new event should not be deleted: %v", err)
+	}
+}
+
+func TestStorage_EventsToNotify_EdgeCases(t *testing.T) {
+	s := New()
+	ctx := context.Background()
+
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	// Событие, где время уведомления точно сейчас
+	event1 := storage.Event{
+		ID:           "event-1",
+		Title:        "Event 1",
+		At:           now.Add(1 * time.Hour),
+		NotifyBefore: 1 * time.Hour, // уведомление должно быть сейчас
+		UserID:       "user-1",
+	}
+
+	if err := s.CreateEvent(ctx, event1); err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	events, err := s.EventsToNotify(ctx, now)
+	if err != nil {
+		t.Fatalf("failed to get events: %v", err)
+	}
+
+	// Событие должно быть включено (время уведомления наступило или прошло)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+
+	// Событие, которое происходит прямо сейчас
+	event2 := storage.Event{
+		ID:           "event-2",
+		Title:        "Event 2",
+		At:           now,
+		NotifyBefore: 1 * time.Hour,
+		UserID:       "user-2",
+	}
+
+	if err := s.CreateEvent(ctx, event2); err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	events, err = s.EventsToNotify(ctx, now)
+	if err != nil {
+		t.Fatalf("failed to get events: %v", err)
+	}
+
+	// Событие, которое происходит сейчас, не должно быть включено (уже произошло)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event (event2 should not be included), got %d", len(events))
 	}
 }

@@ -2,17 +2,13 @@ package memorystorage
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
 	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/storage"
 )
 
-var (
-	ErrNotFound = errors.New("event not found")
-	ErrDateBusy = errors.New("date busy")
-)
+// Используем общие ошибки из пакета storage
 
 type Storage struct {
 	mu     sync.RWMutex
@@ -29,7 +25,7 @@ func (s *Storage) CreateEvent(_ context.Context, e storage.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.events[e.ID]; ok {
-		return ErrDateBusy
+		return storage.ErrDateBusy
 	}
 	s.events[e.ID] = e
 	return nil
@@ -39,7 +35,7 @@ func (s *Storage) UpdateEvent(_ context.Context, e storage.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.events[e.ID]; !ok {
-		return ErrNotFound
+		return storage.ErrNotFound
 	}
 	s.events[e.ID] = e
 	return nil
@@ -49,7 +45,7 @@ func (s *Storage) DeleteEvent(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.events[id]; !ok {
-		return ErrNotFound
+		return storage.ErrNotFound
 	}
 	delete(s.events, id)
 	return nil
@@ -60,7 +56,7 @@ func (s *Storage) GetEvent(_ context.Context, id string) (storage.Event, error) 
 	defer s.mu.RUnlock()
 	e, ok := s.events[id]
 	if !ok {
-		return storage.Event{}, ErrNotFound
+		return storage.Event{}, storage.ErrNotFound
 	}
 	return e, nil
 }
@@ -115,4 +111,43 @@ func (s *Storage) ListEventsMonth(_ context.Context, monthStart time.Time) ([]st
 		}
 	}
 	return out, nil
+}
+
+// EventsToNotify возвращает события, для которых нужно отправить уведомление
+// Событие должно быть выбрано, если текущее время >= (At - NotifyBefore)
+// и событие еще не произошло (At > now).
+func (s *Storage) EventsToNotify(_ context.Context, now time.Time) ([]storage.Event, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := []storage.Event{}
+	for _, ev := range s.events {
+		// Пропускаем события без NotifyBefore
+		if ev.NotifyBefore == 0 {
+			continue
+		}
+		// Пропускаем события, которые уже произошли
+		if ev.At.Before(now) || ev.At.Equal(now) {
+			continue
+		}
+		// Проверяем, нужно ли отправить уведомление
+		notifyTime := ev.At.Add(-ev.NotifyBefore)
+		if now.After(notifyTime) || now.Equal(notifyTime) {
+			out = append(out, ev)
+		}
+	}
+	return out, nil
+}
+
+// DeleteOldEvents удаляет события, произошедшие более 1 года назад.
+func (s *Storage) DeleteOldEvents(_ context.Context, before time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count := 0
+	for id, ev := range s.events {
+		if ev.At.Before(before) {
+			delete(s.events, id)
+			count++
+		}
+	}
+	return count, nil
 }
