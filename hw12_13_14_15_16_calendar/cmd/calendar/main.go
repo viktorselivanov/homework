@@ -3,15 +3,17 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/app"
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/logger"
-	internalhttp "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/server/http"
-	memorystorage "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/storage/memory"
+	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/app"
+	"github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/logger"
+	internalhttp "github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/server/http"
+	memorystorage "github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/storage/memory"
+	sqlstorage "github.com/viktorselivanov/homework/hw12_13_14_15_calendar/internal/storage/sql"
 )
 
 var configFile string
@@ -21,20 +23,41 @@ func init() {
 }
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	flag.Parse()
 
 	if flag.Arg(0) == "version" {
 		printVersion()
-		return
+		return nil
 	}
 
-	config := NewConfig()
-	logg := logger.New(config.Logger.Level)
+	cfg, err := NewConfigFromFile(configFile)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
 
-	storage := memorystorage.New()
+	logg := logger.New(cfg.Logger.Level)
+
+	var storage app.Storage
+	switch cfg.Storage.Type {
+	case "sql":
+		sql := sqlstorage.New(cfg.DB.DSN)
+		if err := sql.Connect(context.Background()); err != nil {
+			return fmt.Errorf("failed to connect to db: %w", err)
+		}
+		storage = sql
+	default:
+		storage = memorystorage.New()
+	}
+
 	calendar := app.New(logg, storage)
-
-	server := internalhttp.NewServer(logg, calendar)
+	server := internalhttp.NewServer(logg, calendar, cfg.Server.Host, cfg.Server.Port)
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -43,10 +66,10 @@ func main() {
 	go func() {
 		<-ctx.Done()
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-		defer cancel()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer shutdownCancel()
 
-		if err := server.Stop(ctx); err != nil {
+		if err := server.Stop(shutdownCtx); err != nil {
 			logg.Error("failed to stop http server: " + err.Error())
 		}
 	}()
@@ -54,8 +77,8 @@ func main() {
 	logg.Info("calendar is running...")
 
 	if err := server.Start(ctx); err != nil {
-		logg.Error("failed to start http server: " + err.Error())
-		cancel()
-		os.Exit(1) //nolint:gocritic
+		return fmt.Errorf("failed to start http server: %w", err)
 	}
+
+	return nil
 }
